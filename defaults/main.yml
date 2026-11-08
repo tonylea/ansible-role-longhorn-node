@@ -1,0 +1,5 @@
+longhorn_node_root_size_gib: 32
+longhorn_node_data_path: /var/lib/longhorn
+
+# The root partition, found from where / is mounted.
+longhorn_node_root_device: "{{ (ansible_facts.mounts | selectattr('mount', 'equalto', '/') | first).device }}"

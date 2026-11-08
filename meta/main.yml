@@ -1,0 +1,13 @@
+galaxy_info:
+  namespace: tonylea
+  role_name: longhorn_node
+  author: Tony Lea
+  description: Prepares a k3s node to store Longhorn data
+  license: MIT
+  min_ansible_version: "2.20"
+  platforms:
+    - name: Debian
+      versions:
+        - trixie
+
+dependencies: []
