@@ -36,14 +36,27 @@
       ansible.builtin.assert:
         that: data_mount.stdout.split() == [test_root.stdout | regex_replace('p2$', 'p3'), 'ext4']
 
-    - name: Read the sizes of Longhorn's partition
-      ansible.builtin.command: blockdev --getsize64 {{ test_root.stdout | regex_replace('p2$', 'p3') }}
-      register: data_bytes
+    - name: Read the test disk's partition table
+      ansible.builtin.command: sfdisk --json {{ test_root.stdout | regex_replace('p2$', '') }}
+      register: table
       changed_when: false
 
-    - name: Longhorn gets the rest of the disk
+    - name: Read the test disk's size in sectors
+      ansible.builtin.command: blockdev --getsz {{ test_root.stdout | regex_replace('p2$', '') }}
+      register: disk_sectors
+      changed_when: false
+
+    - name: Pick out the partitions
+      ansible.builtin.set_fact:
+        partitions: "{{ (table.stdout | from_json).partitiontable.partitions }}"
+
+    - name: Longhorn's partition starts where root ends and runs to the end of the disk
       ansible.builtin.assert:
-        that: data_bytes.stdout | int > 7 * gib | int
+        that:
+          - partitions | length == 3
+          - partitions[2].start == partitions[1].start + partitions[1].size
+          - partitions[2].start + partitions[2].size == disk_sectors.stdout | int
+        fail_msg: "Partition table: {{ partitions }}"
 
     - name: Read the filesystem table
       ansible.builtin.command: findmnt --fstab --noheadings --output SOURCE,TARGET /var/lib/longhorn
