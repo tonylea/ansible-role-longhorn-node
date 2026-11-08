@@ -1,5 +1,7 @@
+# Molecule also runs this before the container exists, when there is nothing to clean up.
 - name: Cleanup
   hosts: all
+  ignore_unreachable: true
   tasks:
     - name: Find the test disk
       ansible.builtin.command: losetup --noheadings --output NAME --associated /var/tmp/test-disk.img
