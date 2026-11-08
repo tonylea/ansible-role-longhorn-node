@@ -1,0 +1,12 @@
+- name: Converge
+  hosts: all
+  become: true
+  pre_tasks:
+    - name: Find the test disk's root partition
+      ansible.builtin.command: findmnt --noheadings --output SOURCE /mnt/test-root
+      register: test_root
+      changed_when: false
+  roles:
+    - role: tonylea.longhorn_node
+      vars:
+        longhorn_node_root_device: "{{ test_root.stdout }}"

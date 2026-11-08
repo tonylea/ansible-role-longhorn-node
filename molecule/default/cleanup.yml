@@ -1,0 +1,19 @@
+- name: Cleanup
+  hosts: all
+  tasks:
+    - name: Find the test disk
+      ansible.builtin.command: losetup --noheadings --output NAME --associated /var/tmp/test-disk.img
+      register: test_disk
+      changed_when: false
+      failed_when: false
+
+    - name: Unmount the test disk's partitions
+      ansible.posix.mount:
+        path: "{{ item }}"
+        state: unmounted
+      loop: [/var/lib/longhorn, /mnt/test-root]
+
+    - name: Detach the test disk
+      ansible.builtin.command: losetup --detach {{ test_disk.stdout }}
+      when: test_disk.stdout | length > 0
+      changed_when: true

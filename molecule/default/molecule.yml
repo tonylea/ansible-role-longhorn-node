@@ -1,0 +1,31 @@
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+
+driver:
+  name: docker
+
+platforms:
+  - name: debian-trixie
+    image: debian:trixie-20261104
+    dockerfile: Dockerfile.j2
+    pre_build_image: false
+    # systemd runs as PID 1 so iscsid runs as a service. The host's /dev lets the test disk's partitions appear,
+    # and the host's kernel modules let dm_crypt load.
+    command: /lib/systemd/systemd
+    privileged: true
+    cgroupns_mode: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - /dev:/dev
+      - /lib/modules:/lib/modules:ro
+    tmpfs:
+      - /run
+      - /tmp
+
+provisioner:
+  name: ansible
+
+verifier:
+  name: ansible

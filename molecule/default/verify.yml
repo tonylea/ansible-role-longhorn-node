@@ -1,0 +1,97 @@
+- name: Verify
+  hosts: all
+  become: true
+  vars:
+    gib: "{{ 1024 * 1024 * 1024 }}"
+  tasks:
+    - name: Find the test disk's root partition
+      ansible.builtin.command: findmnt --noheadings --output SOURCE /mnt/test-root
+      register: test_root
+      changed_when: false
+
+    - name: Read the root partition's size
+      ansible.builtin.command: blockdev --getsize64 {{ test_root.stdout }}
+      register: root_bytes
+      changed_when: false
+
+    - name: The root partition is 32GiB
+      ansible.builtin.assert:
+        that: root_bytes.stdout | int == 32 * gib | int
+
+    - name: Read the root filesystem's size
+      ansible.builtin.command: findmnt --noheadings --bytes --output SIZE /mnt/test-root
+      register: root_fs_bytes
+      changed_when: false
+
+    - name: The root filesystem fills its partition
+      ansible.builtin.assert:
+        that: root_fs_bytes.stdout | int > 31 * gib | int
+
+    - name: Read what is mounted at /var/lib/longhorn
+      ansible.builtin.command: findmnt --noheadings --output SOURCE,FSTYPE /var/lib/longhorn
+      register: data_mount
+      changed_when: false
+
+    - name: Longhorn has its own ext4 partition, right after root
+      ansible.builtin.assert:
+        that: data_mount.stdout.split() == [test_root.stdout | regex_replace('p2$', 'p3'), 'ext4']
+
+    - name: Read the sizes of Longhorn's partition
+      ansible.builtin.command: blockdev --getsize64 {{ test_root.stdout | regex_replace('p2$', 'p3') }}
+      register: data_bytes
+      changed_when: false
+
+    - name: Longhorn gets the rest of the disk
+      ansible.builtin.assert:
+        that: data_bytes.stdout | int > 7 * gib | int
+
+    - name: Read the filesystem table
+      ansible.builtin.command: findmnt --fstab --noheadings --output SOURCE,TARGET /var/lib/longhorn
+      register: fstab
+      changed_when: false
+
+    - name: Longhorn's partition is mounted at boot, by UUID
+      ansible.builtin.assert:
+        that: fstab.stdout is match('UUID=[0-9a-f-]+ +/var/lib/longhorn$')
+
+    - name: Gather service states
+      ansible.builtin.service_facts:
+
+    - name: The iSCSI daemon is running and starts at boot
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['iscsid.service'].state == 'running'
+          - ansible_facts.services['iscsid.service'].status == 'enabled'
+
+    - name: Gather installed packages
+      ansible.builtin.package_facts:
+
+    - name: Longhorn's packages are installed
+      ansible.builtin.assert:
+        that: item in ansible_facts.packages
+      loop: [open-iscsi, nfs-common]
+
+    - name: Check whether dm_crypt is loaded
+      ansible.builtin.stat:
+        path: /sys/module/dm_crypt
+      register: dm_crypt
+
+    - name: Read the modules loaded at boot
+      ansible.builtin.command: cat /etc/modules-load.d/dm_crypt.conf
+      register: modules_load
+      changed_when: false
+
+    - name: The dm_crypt module is loaded now and at every boot
+      ansible.builtin.assert:
+        that:
+          - dm_crypt.stat.exists
+          - "'dm_crypt' in modules_load.stdout_lines"
+
+    - name: Read the k3s config drop-in
+      ansible.builtin.command: cat /etc/rancher/k3s/config.yaml.d/longhorn.yaml
+      register: k3s_dropin
+      changed_when: false
+
+    - name: The node will register with the Longhorn default-disk label
+      ansible.builtin.assert:
+        that: (k3s_dropin.stdout | from_yaml)['node-label+'] == ['node.longhorn.io/create-default-disk=true']

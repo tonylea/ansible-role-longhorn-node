@@ -1,0 +1,43 @@
+# Give the container a real disk laid out like a freshly imaged Pi OS SSD: a 512MiB boot partition and a small ext4
+# root, mounted, with the rest of the disk empty. The disk is a sparse file on a loop device.
+- name: Prepare
+  hosts: all
+  tasks:
+    - name: Install the tools to build the test disk
+      ansible.builtin.apt:
+        name: [fdisk, e2fsprogs, util-linux]
+        update_cache: true
+
+    - name: Create a 40GiB sparse file for the test disk
+      ansible.builtin.command: truncate --size 40G /var/tmp/test-disk.img
+      args:
+        creates: /var/tmp/test-disk.img
+
+    - name: Attach the file as a disk
+      ansible.builtin.command: losetup --find --show --partscan /var/tmp/test-disk.img
+      register: test_disk
+      changed_when: true
+
+    - name: Partition it like a fresh Pi OS image
+      ansible.builtin.command:
+        cmd: sfdisk {{ test_disk.stdout }}
+        stdin: |
+          label: dos
+          ,512MiB,c
+          ,2400MiB,83
+      changed_when: true
+
+    - name: Tell the kernel about the partitions
+      ansible.builtin.command: partx --update {{ test_disk.stdout }}
+      changed_when: true
+
+    - name: Format the root partition
+      ansible.builtin.command: mkfs.ext4 -q {{ test_disk.stdout }}p2
+      changed_when: true
+
+    - name: Mount the root partition
+      ansible.posix.mount:
+        src: "{{ test_disk.stdout }}p2"
+        path: /mnt/test-root
+        fstype: ext4
+        state: ephemeral
