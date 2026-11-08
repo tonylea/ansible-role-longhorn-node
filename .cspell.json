@@ -24,6 +24,7 @@
     "fstab",
     "fstype",
     "getsize",
+    "getsz",
     "homelab",
     "iscsi",
     "iscsid",

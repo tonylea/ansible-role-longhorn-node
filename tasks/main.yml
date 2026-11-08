@@ -53,10 +53,18 @@
     longhorn_node_has_data_partition: >-
       {{ (longhorn_node_table.stdout | from_json).partitiontable.partitions | length > longhorn_node_root_partition | int }}
 
+- name: Note where root ends
+  ansible.builtin.set_fact:
+    longhorn_node_root_end_sector: >-
+      {{ ((longhorn_node_table.stdout | from_json).partitiontable.partitions)[longhorn_node_root_partition | int - 1].start
+         + ((longhorn_node_table.stdout | from_json).partitiontable.partitions)[longhorn_node_root_partition | int - 1].size }}
+
+# The start is given explicitly: left to itself, sfdisk takes the first free space, which on a Pi OS image is the
+# small gap before the boot partition.
 - name: Create Longhorn's partition in the space after root
   ansible.builtin.command:
     cmd: sfdisk --no-reread --force --append {{ longhorn_node_disk }}
-    stdin: ","
+    stdin: "{{ longhorn_node_root_end_sector }},"
   when: not (longhorn_node_has_data_partition | bool)
   changed_when: true
 
