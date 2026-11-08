@@ -35,6 +35,7 @@
     "noheadings",
     "noreply",
     "opts",
+    "partitiontable",
     "partscan",
     "partx",
     "PKNAME",

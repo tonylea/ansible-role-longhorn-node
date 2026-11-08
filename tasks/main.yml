@@ -43,31 +43,37 @@
     fstype: ext4
     resizefs: true
 
-- name: List the disk's partitions
-  ansible.builtin.command: lsblk --list --noheadings --paths --output NAME,TYPE {{ longhorn_node_disk }}
-  register: longhorn_node_partitions
+- name: Read the disk's partition table
+  ansible.builtin.command: sfdisk --json {{ longhorn_node_disk }}
+  register: longhorn_node_table
   changed_when: false
+
+- name: Note whether Longhorn's partition exists
+  ansible.builtin.set_fact:
+    longhorn_node_has_data_partition: >-
+      {{ (longhorn_node_table.stdout | from_json).partitiontable.partitions | length > longhorn_node_root_partition | int }}
 
 - name: Create Longhorn's partition in the space after root
   ansible.builtin.command:
     cmd: sfdisk --no-reread --force --append {{ longhorn_node_disk }}
     stdin: ","
-  when: (longhorn_node_partitions.stdout_lines | select('search', ' part$') | list | last).split()[0] == longhorn_node_root_device
+  when: not (longhorn_node_has_data_partition | bool)
   changed_when: true
 
 - name: Tell the kernel about Longhorn's partition
   ansible.builtin.command: partx --add --nr {{ longhorn_node_root_partition | int + 1 }} {{ longhorn_node_disk }}
-  when: (longhorn_node_partitions.stdout_lines | select('search', ' part$') | list | last).split()[0] == longhorn_node_root_device
+  when: not (longhorn_node_has_data_partition | bool)
   changed_when: true
 
-- name: List the disk's partitions again
-  ansible.builtin.command: lsblk --list --noheadings --paths --output NAME,TYPE {{ longhorn_node_disk }}
-  register: longhorn_node_partitions
+- name: Read the disk's partition table again
+  ansible.builtin.command: sfdisk --json {{ longhorn_node_disk }}
+  register: longhorn_node_table
   changed_when: false
 
 - name: Note Longhorn's partition
   ansible.builtin.set_fact:
-    longhorn_node_data_device: "{{ (longhorn_node_partitions.stdout_lines | select('search', ' part$') | list | last).split()[0] }}"
+    longhorn_node_data_device: >-
+      {{ ((longhorn_node_table.stdout | from_json).partitiontable.partitions)[longhorn_node_root_partition | int].node }}
 
 - name: Format Longhorn's partition
   community.general.filesystem:
