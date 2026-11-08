@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [1.0.2](https://github.com/tonylea/ansible-role-longhorn-node/compare/v1.0.1...v1.0.2) (2026-11-08)
+
+### Bug Fixes
+
+* **ci:** push releases with the repo's deploy key now the token is gone ([09c3164](https://github.com/tonylea/ansible-role-longhorn-node/commit/09c31646505f3d9e418357ca970bc85849c2ec95))
+
 ## [1.0.1](https://github.com/tonylea/ansible-role-longhorn-node/compare/v1.0.0...v1.0.1) (2026-11-08)
 
 ### Bug Fixes
