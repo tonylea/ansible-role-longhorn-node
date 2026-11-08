@@ -31,11 +31,10 @@
     stdin: ",{{ longhorn_node_root_size_gib }}GiB"
   when: longhorn_node_root_bytes.stdout | int < longhorn_node_root_target_bytes | int
   changed_when: true
-  register: longhorn_node_root_grown
 
 - name: Tell the kernel about the bigger root partition
   ansible.builtin.command: partx --update {{ longhorn_node_disk }}
-  when: longhorn_node_root_grown is changed
+  when: longhorn_node_root_bytes.stdout | int < longhorn_node_root_target_bytes | int
   changed_when: true
 
 - name: Grow the root filesystem to fill its partition
@@ -55,11 +54,10 @@
     stdin: ","
   when: (longhorn_node_partitions.stdout_lines | select('search', ' part$') | list | last).split()[0] == longhorn_node_root_device
   changed_when: true
-  register: longhorn_node_data_created
 
 - name: Tell the kernel about Longhorn's partition
   ansible.builtin.command: partx --add {{ longhorn_node_disk }}
-  when: longhorn_node_data_created is changed
+  when: (longhorn_node_partitions.stdout_lines | select('search', ' part$') | list | last).split()[0] == longhorn_node_root_device
   changed_when: true
 
 - name: List the disk's partitions again
