@@ -1,0 +1,53 @@
+{
+  "version": "0.2",
+  "language": "en-GB",
+  "dictionaries": [
+    "softwareTerms"
+  ],
+  "ignorePaths": [
+    ".git/**",
+    ".husky/**",
+    "node_modules/**",
+    "CHANGELOG.md",
+    "package-lock.json"
+  ],
+  "words": [
+    "blkid",
+    "blockdev",
+    "cgroupns",
+    "commitlint",
+    "dropin",
+    "equalto",
+    "fdisk",
+    "findmnt",
+    "fsprogs",
+    "fstab",
+    "fstype",
+    "getsize",
+    "homelab",
+    "iscsi",
+    "iscsid",
+    "kmod",
+    "longhorn",
+    "losetup",
+    "mkfs",
+    "modprobe",
+    "noheadings",
+    "noreply",
+    "opts",
+    "partscan",
+    "partx",
+    "PKNAME",
+    "resizefs",
+    "secretlint",
+    "selectattr",
+    "sfdisk",
+    "SIGRTMIN",
+    "stdin",
+    "sysv",
+    "tmpfs",
+    "tonylea",
+    "trixie",
+    "vars"
+  ]
+}
