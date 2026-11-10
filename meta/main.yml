@@ -2,7 +2,7 @@ galaxy_info:
   namespace: tonylea
   role_name: longhorn_node
   author: Tony Lea
-  description: Prepares a k3s node to store Longhorn data
+  description: Prepares a k3s node for Longhorn
   license: MIT
   min_ansible_version: "2.20"
   platforms:
