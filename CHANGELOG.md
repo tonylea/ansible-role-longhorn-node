@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [1.1.0](https://github.com/tonylea/ansible-role-longhorn-node/compare/v1.0.2...v1.1.0) (2026-11-10)
+
+### Features
+
+* prepare a node to use Longhorn volumes without storing data ([d890db1](https://github.com/tonylea/ansible-role-longhorn-node/commit/d890db1aedad019b88385c0951f8e3b79fe5ad21))
+
+### Documentation
+
+* add a contributing guide ([f82fbb1](https://github.com/tonylea/ansible-role-longhorn-node/commit/f82fbb1a7b1d00b00023e410895f746933545d5b))
+* put each sentence of the README on its own line ([09dadba](https://github.com/tonylea/ansible-role-longhorn-node/commit/09dadbae287d96aae8c3e22c5cf45f77f358ecb7))
+
 ## [1.0.2](https://github.com/tonylea/ansible-role-longhorn-node/compare/v1.0.1...v1.0.2) (2026-11-08)
 
 ### Bug Fixes
