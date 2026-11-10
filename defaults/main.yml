@@ -1,3 +1,5 @@
+# false readies the node to use Longhorn volumes without storing any: no partitioning and no default-disk label.
+longhorn_node_data_disk: true
 longhorn_node_root_size_gib: 32
 longhorn_node_data_path: /var/lib/longhorn
 
