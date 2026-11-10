@@ -1,105 +1,7 @@
-- name: Install the disk tools and Longhorn's prerequisites
+- name: Install Longhorn's prerequisites
   ansible.builtin.apt:
-    name: [fdisk, e2fsprogs, open-iscsi, nfs-common]
+    name: [open-iscsi, nfs-common]
     state: present
-
-- name: Find the disk the root partition is on
-  ansible.builtin.command: lsblk --noheadings --output PKNAME {{ longhorn_node_root_device }}
-  register: longhorn_node_disk_name
-  changed_when: false
-
-- name: Find the root partition's number
-  ansible.builtin.slurp:
-    src: /sys/class/block/{{ longhorn_node_root_device | basename }}/partition
-  register: longhorn_node_root_number
-
-- name: Read the root partition's size
-  ansible.builtin.command: blockdev --getsize64 {{ longhorn_node_root_device }}
-  register: longhorn_node_root_bytes
-  changed_when: false
-
-- name: Note the disk and the root partition's target size
-  ansible.builtin.set_fact:
-    longhorn_node_disk: /dev/{{ longhorn_node_disk_name.stdout | trim }}
-    longhorn_node_root_partition: "{{ longhorn_node_root_number.content | b64decode | trim }}"
-    longhorn_node_root_target_bytes: "{{ longhorn_node_root_size_gib * 1024 * 1024 * 1024 }}"
-
-# Grows only, never shrinks. The start is kept, so the filesystem on it is untouched.
-- name: Grow the root partition
-  ansible.builtin.command:
-    cmd: sfdisk --no-reread --force -N {{ longhorn_node_root_partition }} {{ longhorn_node_disk }}
-    stdin: ",{{ longhorn_node_root_size_gib }}GiB"
-  when: longhorn_node_root_bytes.stdout | int < longhorn_node_root_target_bytes | int
-  changed_when: true
-
-- name: Tell the kernel about the bigger root partition
-  ansible.builtin.command: partx --update {{ longhorn_node_disk }}
-  when: longhorn_node_root_bytes.stdout | int < longhorn_node_root_target_bytes | int
-  changed_when: true
-
-- name: Grow the root filesystem to fill its partition
-  community.general.filesystem:
-    dev: "{{ longhorn_node_root_device }}"
-    fstype: ext4
-    resizefs: true
-
-- name: Read the disk's partition table
-  ansible.builtin.command: sfdisk --json {{ longhorn_node_disk }}
-  register: longhorn_node_table
-  changed_when: false
-
-- name: Note whether Longhorn's partition exists
-  ansible.builtin.set_fact:
-    longhorn_node_has_data_partition: >-
-      {{ (longhorn_node_table.stdout | from_json).partitiontable.partitions | length > longhorn_node_root_partition | int }}
-
-- name: Note where root ends
-  ansible.builtin.set_fact:
-    longhorn_node_root_end_sector: >-
-      {{ ((longhorn_node_table.stdout | from_json).partitiontable.partitions)[longhorn_node_root_partition | int - 1].start
-         + ((longhorn_node_table.stdout | from_json).partitiontable.partitions)[longhorn_node_root_partition | int - 1].size }}
-
-# The start is given explicitly: left to itself, sfdisk takes the first free space, which on a Pi OS image is the
-# small gap before the boot partition.
-- name: Create Longhorn's partition in the space after root
-  ansible.builtin.command:
-    cmd: sfdisk --no-reread --force --append {{ longhorn_node_disk }}
-    stdin: "{{ longhorn_node_root_end_sector }},"
-  when: not (longhorn_node_has_data_partition | bool)
-  changed_when: true
-
-- name: Tell the kernel about Longhorn's partition
-  ansible.builtin.command: partx --add --nr {{ longhorn_node_root_partition | int + 1 }} {{ longhorn_node_disk }}
-  when: not (longhorn_node_has_data_partition | bool)
-  changed_when: true
-
-- name: Read the disk's partition table again
-  ansible.builtin.command: sfdisk --json {{ longhorn_node_disk }}
-  register: longhorn_node_table
-  changed_when: false
-
-- name: Note Longhorn's partition
-  ansible.builtin.set_fact:
-    longhorn_node_data_device: >-
-      {{ ((longhorn_node_table.stdout | from_json).partitiontable.partitions)[longhorn_node_root_partition | int].node }}
-
-- name: Format Longhorn's partition
-  community.general.filesystem:
-    dev: "{{ longhorn_node_data_device }}"
-    fstype: ext4
-
-- name: Read the UUID of Longhorn's partition
-  ansible.builtin.command: blkid --match-tag UUID --output value {{ longhorn_node_data_device }}
-  register: longhorn_node_data_uuid
-  changed_when: false
-
-- name: Mount Longhorn's partition
-  ansible.posix.mount:
-    src: UUID={{ longhorn_node_data_uuid.stdout }}
-    path: "{{ longhorn_node_data_path }}"
-    fstype: ext4
-    opts: defaults
-    state: mounted
 
 - name: Keep the iSCSI daemon running
   ansible.builtin.systemd_service:
@@ -112,22 +14,6 @@
     name: dm_crypt
     persistent: present
 
-- name: Create the k3s config drop-in directory
-  ansible.builtin.file:
-    path: /etc/rancher/k3s/config.yaml.d
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-# node-label+ appends to labels set elsewhere instead of replacing them.
-# k3s only applies node labels when a node first registers.
-- name: Label the node for a Longhorn default disk
-  ansible.builtin.copy:
-    dest: /etc/rancher/k3s/config.yaml.d/longhorn.yaml
-    content: |
-      node-label+:
-        - node.longhorn.io/create-default-disk=true
-    owner: root
-    group: root
-    mode: "0644"
+- name: Give Longhorn a data partition
+  ansible.builtin.include_tasks: data_disk.yml
+  when: longhorn_node_data_disk | bool
