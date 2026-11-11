@@ -15,5 +15,5 @@
     persistent: present
 
 - name: Give Longhorn a data partition
-  ansible.builtin.include_tasks: data_disk.yml
+  ansible.builtin.import_tasks: data_disk.yml
   when: longhorn_node_data_disk | bool
