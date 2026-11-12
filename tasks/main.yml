@@ -2,6 +2,8 @@
   ansible.builtin.apt:
     name: [open-iscsi, nfs-common]
     state: present
+    update_cache: true
+    cache_valid_time: 3600
 
 - name: Keep the iSCSI daemon running
   ansible.builtin.systemd_service:
