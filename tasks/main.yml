@@ -14,6 +14,14 @@
     name: dm_crypt
     persistent: present
 
-- name: Give Longhorn a data partition
-  ansible.builtin.import_tasks: data_disk.yml
+- name: Give Longhorn a partition after root
+  ansible.builtin.import_tasks: data_partition.yml
+  when: longhorn_node_data_disk | bool and longhorn_node_whole_disk | length == 0
+
+- name: Give Longhorn a whole disk
+  ansible.builtin.import_tasks: whole_disk.yml
+  when: longhorn_node_data_disk | bool and longhorn_node_whole_disk | length > 0
+
+- name: Mount Longhorn's storage and label the node
+  ansible.builtin.import_tasks: data_mount.yml
   when: longhorn_node_data_disk | bool

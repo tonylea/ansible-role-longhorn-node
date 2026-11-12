@@ -1,0 +1,20 @@
+- name: Install the filesystem tools
+  ansible.builtin.apt:
+    name: e2fsprogs
+    state: present
+
+- name: List the devices on Longhorn's disk
+  ansible.builtin.command: lsblk --noheadings --list --output NAME {{ longhorn_node_whole_disk }}
+  register: longhorn_node_whole_disk_devices
+  changed_when: false
+
+# A disk with partitions may be the root disk or hold other data; formatting it whole would wipe them.
+- name: Check Longhorn's disk has no partitions
+  ansible.builtin.assert:
+    that: longhorn_node_whole_disk_devices.stdout_lines | length == 1
+    fail_msg: "{{ longhorn_node_whole_disk }} has partitions, so the role won't format it for Longhorn."
+    quiet: true
+
+- name: Note Longhorn's disk
+  ansible.builtin.set_fact:
+    longhorn_node_data_device: "{{ longhorn_node_whole_disk }}"
