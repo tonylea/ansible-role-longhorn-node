@@ -1,6 +1,6 @@
 {
   "name": "ansible-role-longhorn-node",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Prepares a k3s node to store Longhorn data",
   "private": true,
   "repository": {

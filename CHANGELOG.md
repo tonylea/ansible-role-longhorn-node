@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [1.2.1](https://github.com/tonylea/ansible-role-longhorn-node/compare/v1.2.0...v1.2.1) (2026-11-12)
+
+### Bug Fixes
+
+* always update apt's package lists before installing Longhorn's prerequisites ([f1dcfbd](https://github.com/tonylea/ansible-role-longhorn-node/commit/f1dcfbd6c9420f281dd1ad0d4c22352e506fcefa))
+* update apt's package lists before installing Longhorn's prerequisites ([5a712b5](https://github.com/tonylea/ansible-role-longhorn-node/commit/5a712b5604581d1e94a6788b3cf23a40dfd1e1ee))
+
 ## [1.2.0](https://github.com/tonylea/ansible-role-longhorn-node/compare/v1.1.0...v1.2.0) (2026-11-12)
 
 ### Features
