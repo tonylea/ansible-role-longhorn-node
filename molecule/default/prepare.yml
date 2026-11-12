@@ -57,3 +57,17 @@
     - name: Attach the file as a disk
       ansible.builtin.command: losetup --find --show {{ test_disk_image }}
       changed_when: true
+
+    - name: Find apt's package lists
+      ansible.builtin.find:
+        paths: /var/lib/apt/lists
+        file_type: file
+      register: apt_lists
+
+    - name: Empty apt's package lists, as Debian's cloud image ships them
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ apt_lists.files }}"
+      loop_control:
+        label: "{{ item.path }}"
