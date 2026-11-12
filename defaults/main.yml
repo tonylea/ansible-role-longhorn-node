@@ -3,5 +3,8 @@ longhorn_node_data_disk: true
 longhorn_node_root_size_gib: 32
 longhorn_node_data_path: /var/lib/longhorn
 
+# A disk with no partitions, such as /dev/vdb, to give Longhorn whole. Empty gives Longhorn a partition after root.
+longhorn_node_whole_disk: ""
+
 # The root partition, found from where / is mounted.
 longhorn_node_root_device: "{{ (ansible_facts.mounts | selectattr('mount', 'equalto', '/') | first).device }}"

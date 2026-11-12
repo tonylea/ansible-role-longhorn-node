@@ -13,12 +13,12 @@
       when: machine.unreachable | default(false)
 
     - name: Find the test disk
-      ansible.builtin.command: losetup --noheadings --output NAME --associated /var/tmp/test-disk.img
+      ansible.builtin.command: losetup --noheadings --output NAME --associated {{ test_disk_image }}
       register: test_disk
       changed_when: false
       failed_when: false
 
-    - name: Unmount the test disk's partitions
+    - name: Unmount the test disk
       ansible.posix.mount:
         path: "{{ item }}"
         state: unmounted

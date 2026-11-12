@@ -1,5 +1,5 @@
-- name: Converge
-  hosts: all
+- name: Converge the partition test
+  hosts: partition
   become: true
   pre_tasks:
     - name: Find the test disk's root partition
@@ -10,3 +10,16 @@
     - role: tonylea.longhorn_node
       vars:
         longhorn_node_root_device: "{{ test_root.stdout }}"
+
+- name: Converge the whole-disk test
+  hosts: whole-disk
+  become: true
+  pre_tasks:
+    - name: Find the test disk
+      ansible.builtin.command: losetup --noheadings --output NAME --associated {{ test_disk_image }}
+      register: test_disk
+      changed_when: false
+  roles:
+    - role: tonylea.longhorn_node
+      vars:
+        longhorn_node_whole_disk: "{{ test_disk.stdout }}"
