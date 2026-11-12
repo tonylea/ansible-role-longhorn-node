@@ -1,5 +1,60 @@
-- name: Verify
+- name: Verify both nodes
   hosts: all
+  become: true
+  tasks:
+    - name: Read the filesystem table
+      ansible.builtin.command: findmnt --fstab --noheadings --output SOURCE,TARGET /var/lib/longhorn
+      register: fstab
+      changed_when: false
+
+    - name: Longhorn's storage is mounted at boot, by UUID
+      ansible.builtin.assert:
+        that: fstab.stdout is match('UUID=[0-9a-f-]+ +/var/lib/longhorn$')
+
+    - name: Gather service states
+      ansible.builtin.service_facts:
+
+    - name: The iSCSI daemon is running and starts at boot
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['iscsid.service'].state == 'running'
+          - ansible_facts.services['iscsid.service'].status == 'enabled'
+
+    - name: Gather installed packages
+      ansible.builtin.package_facts:
+
+    - name: Longhorn's packages are installed
+      ansible.builtin.assert:
+        that: item in ansible_facts.packages
+      loop: [open-iscsi, nfs-common]
+
+    - name: Check whether dm_crypt is loaded
+      ansible.builtin.stat:
+        path: /sys/module/dm_crypt
+      register: dm_crypt
+
+    - name: Read the modules loaded at boot
+      ansible.builtin.command: cat /etc/modules-load.d/dm_crypt.conf
+      register: modules_load
+      changed_when: false
+
+    - name: The dm_crypt module is loaded now and at every boot
+      ansible.builtin.assert:
+        that:
+          - dm_crypt.stat.exists
+          - "'dm_crypt' in modules_load.stdout_lines"
+
+    - name: Read the k3s config drop-in
+      ansible.builtin.command: cat /etc/rancher/k3s/config.yaml.d/longhorn.yaml
+      register: k3s_dropin
+      changed_when: false
+
+    - name: The node will register with the Longhorn default-disk label
+      ansible.builtin.assert:
+        that: (k3s_dropin.stdout | from_yaml)['node-label+'] == ['node.longhorn.io/create-default-disk=true']
+
+- name: Verify the partition test
+  hosts: partition
   become: true
   vars:
     gib: "{{ 1024 * 1024 * 1024 }}"
@@ -58,53 +113,67 @@
           - partitions[2].start + partitions[2].size == disk_sectors.stdout | int
         fail_msg: "Partition table: {{ partitions }}"
 
-    - name: Read the filesystem table
-      ansible.builtin.command: findmnt --fstab --noheadings --output SOURCE,TARGET /var/lib/longhorn
-      register: fstab
+- name: Verify the whole-disk test
+  hosts: whole-disk
+  become: true
+  tasks:
+    - name: Find the test disk
+      ansible.builtin.command: losetup --noheadings --output NAME --associated {{ test_disk_image }}
+      register: test_disk
       changed_when: false
 
-    - name: Longhorn's partition is mounted at boot, by UUID
+    - name: Read what is mounted at /var/lib/longhorn
+      ansible.builtin.command: findmnt --noheadings --output SOURCE,FSTYPE /var/lib/longhorn
+      register: data_mount
+      changed_when: false
+
+    - name: Longhorn has the whole disk, formatted ext4
       ansible.builtin.assert:
-        that: fstab.stdout is match('UUID=[0-9a-f-]+ +/var/lib/longhorn$')
+        that: data_mount.stdout.split() == [test_disk.stdout, 'ext4']
 
-    - name: Gather service states
-      ansible.builtin.service_facts:
+    - name: List the devices on the test disk
+      ansible.builtin.command: lsblk --noheadings --list --output NAME {{ test_disk.stdout }}
+      register: disk_devices
+      changed_when: false
 
-    - name: The iSCSI daemon is running and starts at boot
+    - name: The test disk has no partitions
+      ansible.builtin.assert:
+        that: disk_devices.stdout_lines | length == 1
+        fail_msg: "Devices: {{ disk_devices.stdout_lines }}"
+
+- name: Verify the role refuses a disk with partitions
+  hosts: partition
+  become: true
+  tasks:
+    - name: Find the test disk's root partition
+      ansible.builtin.command: findmnt --noheadings --output SOURCE /mnt/test-root
+      register: test_root
+      changed_when: false
+
+    - name: Give Longhorn the partitioned test disk whole
+      block:
+        - name: Run the role's whole-disk tasks on it
+          ansible.builtin.include_role:
+            name: tonylea.longhorn_node
+            tasks_from: whole_disk.yml
+          vars:
+            longhorn_node_whole_disk: "{{ test_root.stdout | regex_replace('p2$', '') }}"
+
+        - name: Note that the role went ahead
+          ansible.builtin.set_fact:
+            refused: false
+      rescue:
+        - name: Note that the role stopped
+          ansible.builtin.set_fact:
+            refused: true
+
+    - name: Read the test disk's partition table
+      ansible.builtin.command: sfdisk --json {{ test_root.stdout | regex_replace('p2$', '') }}
+      register: table
+      changed_when: false
+
+    - name: The role stopped and the disk keeps its partitions
       ansible.builtin.assert:
         that:
-          - ansible_facts.services['iscsid.service'].state == 'running'
-          - ansible_facts.services['iscsid.service'].status == 'enabled'
-
-    - name: Gather installed packages
-      ansible.builtin.package_facts:
-
-    - name: Longhorn's packages are installed
-      ansible.builtin.assert:
-        that: item in ansible_facts.packages
-      loop: [open-iscsi, nfs-common]
-
-    - name: Check whether dm_crypt is loaded
-      ansible.builtin.stat:
-        path: /sys/module/dm_crypt
-      register: dm_crypt
-
-    - name: Read the modules loaded at boot
-      ansible.builtin.command: cat /etc/modules-load.d/dm_crypt.conf
-      register: modules_load
-      changed_when: false
-
-    - name: The dm_crypt module is loaded now and at every boot
-      ansible.builtin.assert:
-        that:
-          - dm_crypt.stat.exists
-          - "'dm_crypt' in modules_load.stdout_lines"
-
-    - name: Read the k3s config drop-in
-      ansible.builtin.command: cat /etc/rancher/k3s/config.yaml.d/longhorn.yaml
-      register: k3s_dropin
-      changed_when: false
-
-    - name: The node will register with the Longhorn default-disk label
-      ansible.builtin.assert:
-        that: (k3s_dropin.stdout | from_yaml)['node-label+'] == ['node.longhorn.io/create-default-disk=true']
+          - refused
+          - (table.stdout | from_json).partitiontable.partitions | length == 3

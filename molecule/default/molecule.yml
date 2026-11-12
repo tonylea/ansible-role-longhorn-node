@@ -6,8 +6,9 @@ dependency:
 driver:
   name: docker
 
+# One container per way of giving Longhorn its storage: a partition after root, and a whole disk.
 platforms:
-  - name: debian-trixie
+  - name: partition
     image: debian:trixie-20261104
     dockerfile: Dockerfile.j2
     pre_build_image: false
@@ -23,9 +24,30 @@ platforms:
     tmpfs:
       - /run
       - /tmp
+  - name: whole-disk
+    image: debian:trixie-20261104
+    dockerfile: Dockerfile.j2
+    pre_build_image: false
+    command: /lib/systemd/systemd
+    privileged: true
+    cgroupns_mode: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - /dev:/dev
+      - /lib/modules:/lib/modules:ro
+    tmpfs:
+      - /run
+      - /tmp
 
 provisioner:
   name: ansible
+  inventory:
+    # Both containers share the host's loop devices, so each test disk has its own file.
+    host_vars:
+      partition:
+        test_disk_image: /var/tmp/test-disk.img
+      whole-disk:
+        test_disk_image: /var/tmp/whole-disk.img
 
 verifier:
   name: ansible
