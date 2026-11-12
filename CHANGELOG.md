@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [1.2.0](https://github.com/tonylea/ansible-role-longhorn-node/compare/v1.1.0...v1.2.0) (2026-11-12)
+
+### Features
+
+* give Longhorn a whole disk instead of a partition after root ([32d278f](https://github.com/tonylea/ansible-role-longhorn-node/commit/32d278f2ade66069ada926c55412a491dc1d9427))
+
 ## [1.1.0](https://github.com/tonylea/ansible-role-longhorn-node/compare/v1.0.2...v1.1.0) (2026-11-10)
 
 ### Features
